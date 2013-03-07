@@ -1,16 +1,17 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace WordLinker
+namespace SeedFinder
 {
     public class WordLink
     {
         /// <summary>List of words from a dictionary.</summary>
-        private static HashSet<string> wordlist;
+        public HashSet<string> WordList { get; private set; }
 
         /// <summary>a,b, ... z</summary>
-        private static List<char> az;
+        private List<char> az;
 
         public WordLink(string wordlistFilename)
         {
@@ -21,7 +22,7 @@ namespace WordLinker
         /// <summary>Finds a link between 2 words changing 1 char at a time. NULL if no link found.</summary>
         public List<string> Find(string start, string target)
         {
-            if (!wordlist.Contains(start) || !wordlist.Contains(target))
+            if (!WordList.Contains(start) || !WordList.Contains(target))
                 return null;
 
             // Breadth first search using a queue.
@@ -45,6 +46,18 @@ namespace WordLinker
                     if (currentWalk.Contains(nextWord))
                         continue; // already used this word, don't want to walk backwards
 
+                    bool addNewWalk = true;
+                    foreach (Stack<string> otherWalk in q)
+                    {
+                        if (otherWalk.Contains(nextWord))
+                        {
+                            // there is another walk, otherWalk, who's length is <= to this walk that gets to the same word.
+                            // No need to pursue this walk.
+                            addNewWalk = false;
+                            break;
+                        }
+                    }
+
                     Stack<string> newWalk = new Stack<string>(currentWalk.Reverse());
                     newWalk.Push(nextWord);
 
@@ -54,18 +67,30 @@ namespace WordLinker
                         return new List<string>(newWalk);
                     }
 
-                    q.Enqueue(newWalk);
+                    if (addNewWalk)
+                    {
+                        q.Enqueue(newWalk);
+                    }
                 }
             }
 
             return null;
         }
 
+        /// <summary>A dictionary of params->result for the method OneStep.</summary>
+        private ConcurrentDictionary<string, List<string>> _oneStepMemoization = new ConcurrentDictionary<string, List<string>>();
+
         /// <summary>Returns words that are 1 char away from the word given.</summary>
         /// <remarks>Brute force atm :/</remarks>
-        private static List<string> OneStep(string word)
+        private IEnumerable<string> OneStep(string word)
         {
-            List<string> result = new List<string>();
+            List<string> result = null;
+            if (_oneStepMemoization.TryGetValue(word, out result))
+            {
+                return result;
+            }
+
+            result = new List<string>();
             char[] wordArr = word.ToCharArray();
             char[] possibleWordArr = new char[wordArr.Length];
 
@@ -77,25 +102,27 @@ namespace WordLinker
                 {
                     possibleWordArr[i] = c;
                     string possibleWord = new string(possibleWordArr);
-                    if (wordlist.Contains(possibleWord))
+                    if (WordList.Contains(possibleWord))
                     {
                         result.Add(possibleWord);
                     }
                 }
             }
+
+            _oneStepMemoization.TryAdd(word, result);
             return result;
         }
 
         private void LoadDictionary(string location)
         {
-            wordlist = new HashSet<string>();
+            WordList = new HashSet<string>();
             foreach (string word in System.IO.File.ReadAllLines(location))
             {
-                wordlist.Add(word);
+                WordList.Add(word);
             }
         }
 
-        private static void LoadCharAZ()
+        private void LoadCharAZ()
         {
             az = new List<char>();
             for (int i = 'a'; i <= 'z'; i++)
