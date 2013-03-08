@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,8 +12,12 @@ namespace SeedFinder
         /// <summary>a,b, ... z</summary>
         private List<char> az;
 
-        public WordLink(string wordlistFilename)
+        /// <summary>Constructs a WordLinker class to find paths between 2 words.</summary>
+        /// <param name="wordlistFilename">The full file path to the wordlist to use.</param>
+        /// <param name="changeableWordSize">Can the words grow and shrink as you attempt to get to the target word?</param>
+        public WordLink(string wordlistFilename, bool changeableWordSize)
         {
+            this.changeableWordSize = changeableWordSize;
             LoadDictionary(wordlistFilename);
             LoadCharAZ();
         }
@@ -33,14 +36,12 @@ namespace SeedFinder
             firstStep.Push(start);
             q.Enqueue(firstStep);
 
-            Random r = new Random(); // randomizing the returned words should ensure a uniform run time.
-
             while (q.Count > 0)
             {
                 Stack<string> currentWalk = q.Dequeue();
                 string currentWord = currentWalk.Peek();
 
-                List<string> nextSteps = OneStep(currentWord).OrderBy(x => r.Next()).ToList();
+                List<string> nextSteps = GetAdjacentNodes(currentWord).ToList();
                 foreach (string nextWord in nextSteps)
                 {
                     if (currentWalk.Contains(nextWord))
@@ -64,9 +65,9 @@ namespace SeedFinder
                     if (nextWord == target)
                     {
                         // happy days
-                        return new List<string>(newWalk);
+                        return new List<string>(newWalk.Reverse());
                     }
-
+                    
                     if (addNewWalk)
                     {
                         q.Enqueue(newWalk);
@@ -80,9 +81,11 @@ namespace SeedFinder
         /// <summary>A dictionary of params->result for the method OneStep.</summary>
         private ConcurrentDictionary<string, List<string>> _oneStepMemoization = new ConcurrentDictionary<string, List<string>>();
 
-        /// <summary>Returns words that are 1 char away from the word given.</summary>
-        /// <remarks>Brute force atm :/</remarks>
-        private IEnumerable<string> OneStep(string word)
+        /// <summary>Can the word size grow/shrink by 1 character?</summary>
+        private bool changeableWordSize;
+
+        /// <summary>Returns all the valid words that are 1 edge away from the word given.</summary>
+        private IEnumerable<string> GetAdjacentNodes(string word)
         {
             List<string> result = null;
             if (_oneStepMemoization.TryGetValue(word, out result))
@@ -90,6 +93,22 @@ namespace SeedFinder
                 return result;
             }
 
+            result = Onestep(word);
+
+            if (this.changeableWordSize)
+            {
+                result.AddRange(OneStepExtraCharacter(word));
+                result.AddRange(OneStepLessCharacter(word));
+            }
+
+            _oneStepMemoization.TryAdd(word, result);
+            return result;
+        }
+
+        /// <summary>Returns words that are 1 char away from the word given.</summary>
+        private List<string> Onestep(string word)
+        {
+            List<string> result;
             result = new List<string>();
             char[] wordArr = word.ToCharArray();
             char[] possibleWordArr = new char[wordArr.Length];
@@ -108,8 +127,69 @@ namespace SeedFinder
                     }
                 }
             }
+            return result;
+        }
 
-            _oneStepMemoization.TryAdd(word, result);
+        /// <summary>Returns all valid words where 1 character has been removed.</summary>
+        private IEnumerable<string> OneStepLessCharacter(string word)
+        {
+            List<string> result = new List<string>();
+            char[] wordArr = word.ToCharArray();
+            char[] possibleWordArr = new char[wordArr.Length - 1];
+
+            for (int i = 0; i < wordArr.Length; i++)
+            {
+                for (int j = 0; j < possibleWordArr.Length; j++)
+                {
+                    if (j != i)
+                    {
+                        possibleWordArr[j] = wordArr[j];
+                    }
+                }
+
+                string possibleWord = new string(possibleWordArr);
+                if (WordList.Contains(possibleWord))
+                {
+                    result.Add(possibleWord);
+                }
+            }
+            return result;
+        }
+
+        /// <summary>Returns all valid words where 1 character has been added.</summary>
+        private IEnumerable<string> OneStepExtraCharacter(string word)
+        {
+            List<string> result = new List<string>();
+
+            char[] wordArr = word.ToCharArray();
+            char[] possibleWordArr = new char[wordArr.Length + 1];
+
+            for (int i = 0; i < wordArr.Length; i++)
+            {
+                int offset = 0;
+                for (int j = 0; j < possibleWordArr.Length; j++)
+                {
+                    if (j != i)
+                    {
+                        possibleWordArr[j] = wordArr[j - offset];
+                    }
+                    else
+                    {
+                        possibleWordArr[j] = '_'; // this is the extra character position
+                        offset = 1;
+                    }
+                }
+
+                foreach (char c in az)
+                {
+                    possibleWordArr[i] = c;
+                    string possibleWord = new string(possibleWordArr);
+                    if (WordList.Contains(possibleWord))
+                    {
+                        result.Add(possibleWord);
+                    }
+                }
+            }
             return result;
         }
 
