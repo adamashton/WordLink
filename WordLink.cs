@@ -41,8 +41,7 @@ namespace SeedFinder
                 Stack<string> currentWalk = q.Dequeue();
                 string currentWord = currentWalk.Peek();
 
-                List<string> nextSteps = GetAdjacentNodes(currentWord).ToList();
-                foreach (string nextWord in nextSteps)
+                foreach (string nextWord in GetAdjacentNodes(currentWord))
                 {
                     if (currentWalk.Contains(nextWord))
                         continue; // already used this word, don't want to walk backwards
