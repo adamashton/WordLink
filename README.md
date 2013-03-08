@@ -6,8 +6,8 @@ Attempts to link two words by changing one char at a time on each word to obtain
 Usage
 =====
 ```
-WordLink wl = new WordLink(@"wordlist.txt");
-List<string> result = wl.Find("beer", "good");
+WordLink wl = new WordLink(@"wordlist.txt", true);
+List<string> result = wl.Find("beer", "wine");
 if (result != null)
 {
 	String sep = string.Empty;
@@ -22,4 +22,6 @@ if (result != null)
 ```
 Output
 ======
-``beer, boer, boor, boon, goon, good``
+```
+beer, deer, dee, die, dine, wine
+```
