@@ -10,6 +10,8 @@ WordLink wl = new WordLink(@"wordlist.txt", true);
 List<string> result = wl.Find("beer", "wine");
 if (result != null)
 	Console.WriteLine(string.Join(",", result));
+else
+	Console.WriteLine("Could not find link between words.");
 ```
 Output
 ======
