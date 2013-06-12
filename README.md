@@ -10,14 +10,7 @@ WordLink wl = new WordLink(@"wordlist.txt", true);
 List<string> result = wl.Find("beer", "wine");
 if (result != null)
 {
-	String sep = string.Empty;
-	foreach (string word in result)
-	{
-		Console.Write(sep);
-		sep = ", ";
-		Console.Write(word);
-	}
-	Console.WriteLine();
+	Console.WriteLine(string.Join(",", result));
 }
 ```
 Output
